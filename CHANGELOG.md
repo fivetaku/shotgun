@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.1 (2026-07-14)
+
+Wake injection hardening, field-tested against VS Code:
+
+- Synthetic cmd+V paste is ignored by Electron terminals — wake is back to
+  character keystrokes (the channel verified to land), with a sacrificial
+  char + delete against first-character drops and a 1.2s pause so the slash
+  menu settles on the exact /bang match before Enter fires.
+- Typing-collision guard: wake now waits for a pause in the user's own typing
+  (HID idle ≥ 1.2s, up to 15s) and cancels itself if a hook consumed the flag
+  meanwhile.
+- Caveat: in a session opened BEFORE the plugin was installed, /bang doesn't
+  exist and Enter can select the top fuzzy menu entry instead — restart open
+  windows after installing.
+
 ## v0.3.0 (2026-07-14)
 
 - **Wake now types `/bang`** — a real slash command instead of a prompt blob.

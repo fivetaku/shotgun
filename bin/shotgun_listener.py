@@ -201,6 +201,18 @@ def on_slam(cfg, rms, ratio, count):
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 
 
+def _hid_idle_seconds():
+    """Seconds since the user's last keyboard/mouse input (macOS)."""
+    try:
+        out = subprocess.run(
+            ["/bin/sh", "-c",
+             "ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print $NF/1000000000; exit}'"],
+            capture_output=True, text=True, timeout=5).stdout.strip()
+        return float(out) if out else 999.0
+    except Exception:
+        return 999.0
+
+
 def do_wake(cfg):
     """Force-wake an idle session by typing into the user's terminal.
 
@@ -212,6 +224,18 @@ def do_wake(cfg):
     """
     text = str(cfg.get("wake_text") or DEFAULTS["wake_text"])
     try:
+        # Never type over the user: wait for a pause in their typing (HID idle
+        # >= 1.2s), and abort entirely if the flag got consumed meanwhile — it
+        # means they engaged the session themselves and a hook took over.
+        if not IS_WIN:
+            deadline = time.time() + 15
+            while time.time() < deadline:
+                if not os.path.exists(FLAG):
+                    log("wake: cancelled (flag consumed while waiting)")
+                    return
+                if _hid_idle_seconds() >= 1.2:
+                    break
+                time.sleep(0.3)
         if os.environ.get("TMUX") and os.environ.get("TMUX_PANE"):
             subprocess.run(["tmux", "send-keys", "-t", os.environ["TMUX_PANE"],
                             text, "Enter"], capture_output=True, timeout=5)
@@ -232,26 +256,33 @@ def do_wake(cfg):
             log("wake: SendKeys paste sent" if r.returncode == 0 else
                 f"wake failed: {r.stderr.strip()[:200]}")
             return
-        # macOS: clipboard-paste instead of keystroke — System Events keystroke
-        # races focus and eats the first character ("BANG" arrived as "ANG").
-        old = subprocess.run(["pbpaste"], capture_output=True, text=True,
-                             timeout=5).stdout
-        subprocess.run(["pbcopy"], input=text, text=True, timeout=5)
-        script = ('delay 0.3\n'
-                  'tell application "System Events"\n'
-                  '  keystroke "v" using command down\n'
-                  '  delay 0.25\n'
+        # macOS: character keystrokes — the ONLY channel verified to reach
+        # Electron terminals (synthetic cmd+V modifier combos are ignored by
+        # VS Code). Defenses: settle delay + sacrificial char/delete against
+        # first-char drops, and a LONG pause after typing so the slash-command
+        # menu settles on the exact match before Enter (a premature Enter
+        # fires whatever fuzzy entry is highlighted — observed once selecting
+        # /coupang-search from a half-typed /bang). ASCII wake_text only.
+        esc = text.replace("\\", "\\\\").replace('"', '\\"')
+        script = ('tell application "System Events"\n'
+                  '  set frontApp to name of first process whose frontmost is true\n'
+                  '  delay 0.5\n'
+                  '  keystroke "x"\n'
+                  '  delay 0.2\n'
+                  '  key code 51\n'
+                  '  delay 0.2\n'
+                  f'  keystroke "{esc}"\n'
+                  '  delay 1.2\n'
                   '  key code 36\n'
-                  'end tell')
+                  'end tell\n'
+                  'return frontApp')
         r = subprocess.run(["osascript", "-e", script],
-                           capture_output=True, text=True, timeout=10)
-        time.sleep(0.4)
-        subprocess.run(["pbcopy"], input=old, text=True, timeout=5)  # restore
+                           capture_output=True, text=True, timeout=20)
         if r.returncode != 0:
             log(f"wake failed (grant Accessibility to your terminal app): "
                 f"{r.stderr.strip()[:200]}")
         else:
-            log("wake: paste sent to frontmost app")
+            log(f"wake: typed into frontmost app [{r.stdout.strip()}]")
     except Exception as e:  # wake is best-effort by design
         log(f"wake error: {e}")
 
