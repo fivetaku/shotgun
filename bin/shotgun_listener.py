@@ -43,6 +43,10 @@ DEFAULTS = {
     "refractory": 1.5,       # seconds; one BANG = one trigger
     "sound": True,           # play a chime on detection
     "notify": True,          # macOS notification on detection
+    "wake": True,            # if no session consumed the flag, type into the
+                             # focused terminal to force-wake an idle session
+    "wake_delay": 3.0,       # seconds to wait for a live session first
+    "wake_text": "BANG",     # the text typed to wake the session
 }
 
 
@@ -141,6 +145,37 @@ def on_slam(cfg, rms, ratio, count):
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 
 
+def do_wake(cfg):
+    """Force-wake an idle session by typing into the user's terminal.
+
+    Hooks are event-driven: an idle session cannot react until an event fires.
+    If nobody consumed the flag within wake_delay, we inject a keystroke —
+    exact tmux pane when available, otherwise the frontmost app (the window
+    the user is staring at while slamming). Needs macOS Accessibility
+    permission for the keystroke path; failures are logged, never fatal.
+    """
+    text = str(cfg.get("wake_text") or "BANG").replace('"', "")
+    try:
+        if os.environ.get("TMUX") and os.environ.get("TMUX_PANE"):
+            subprocess.run(["tmux", "send-keys", "-t", os.environ["TMUX_PANE"],
+                            text, "Enter"], capture_output=True, timeout=5)
+            log(f"wake: tmux send-keys to {os.environ['TMUX_PANE']}")
+            return
+        script = (f'tell application "System Events"\n'
+                  f'  keystroke "{text}"\n'
+                  f'  key code 36\n'
+                  f'end tell')
+        r = subprocess.run(["osascript", "-e", script],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode != 0:
+            log(f"wake failed (grant Accessibility to your terminal app): "
+                f"{r.stderr.strip()[:200]}")
+        else:
+            log("wake: keystroke sent to frontmost app")
+    except Exception as e:  # wake is best-effort by design
+        log(f"wake error: {e}")
+
+
 def run(cfg, duration=0, verbose=False, daemon=False):
     proc = open_stream(cfg)
     noise = collections.deque(maxlen=NOISE_BLOCKS)
@@ -152,6 +187,8 @@ def run(cfg, duration=0, verbose=False, daemon=False):
     last_hb_check = time.time()
     start = time.time()
     slams = 0
+    wake_at = 0.0            # pending wake deadline (0 = none)
+    wake_block = 0.0         # don't re-wake within this window
 
     if verbose:
         print(f"listening on device :{cfg['device']} threshold={threshold:.0f} "
@@ -166,6 +203,8 @@ def run(cfg, duration=0, verbose=False, daemon=False):
             last_trig = now
             slams += 1
             on_slam(cfg, rms, ratio, slams)
+            if daemon and cfg.get("wake") and now > wake_block:
+                wake_at = now + float(cfg.get("wake_delay", 3.0))
             if verbose:
                 print(f"SLAM! #{slams} rms={rms:.0f} ({dbfs(rms):.1f} dBFS) "
                       f"peak={peak} ratio={ratio:.1f}", flush=True)
@@ -176,6 +215,12 @@ def run(cfg, duration=0, verbose=False, daemon=False):
             last_report = now
             print(f"level rms={rms:.0f} ({dbfs(rms):.1f} dBFS) peak={peak} "
                   f"floor={floor:.0f}", flush=True)
+
+        if wake_at and now >= wake_at:
+            wake_at = 0.0
+            if os.path.exists(FLAG):     # nobody consumed it — force-wake
+                wake_block = now + 60
+                do_wake(cfg)
 
         if daemon and now - last_hb_check > 5:
             last_hb_check = now

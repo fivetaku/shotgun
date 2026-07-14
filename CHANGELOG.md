@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.0 (2026-07-14)
+
+**Wake mode** — idle sessions now get force-woken. Hooks are event-driven, so
+an idle session used to sit silent until your next message. Now, if no session
+consumes the flag within `wake_delay` (default 3s), the daemon types
+`wake_text` (default "BANG") + Enter into your terminal — exact tmux pane when
+available, otherwise the frontmost app (the window you're staring at while
+slamming). That keystroke IS the event: the session wakes, apologizes first,
+and starts the re-review. Opt out with `"wake": false`. The keystroke path
+needs macOS Accessibility permission for your terminal app; failures are
+logged to daemon.log, never fatal. Also: test/calibrate output now shows dBFS
+alongside raw RMS.
+
 ## v0.1.0 (2026-07-14)
 
 First release — BANG.
