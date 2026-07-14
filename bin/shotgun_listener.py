@@ -40,7 +40,7 @@ HEARTBEAT_MAX = 600          # daemon exits if no live CC session for 10 min
 DEFAULTS = {
     "enabled": True,
     "device": "0",
-    "threshold": 1500,       # int16 RMS absolute floor (user-adjustable)
+    "threshold": 5000,       # int16 RMS absolute floor (user-adjustable)
     "ratio": 6.0,            # spike must exceed background floor by this factor
     "refractory": 1.5,       # seconds; one BANG = one trigger
     "sound": True,           # play a chime on detection

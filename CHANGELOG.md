@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.10 (2026-07-15)
+
+Default threshold 1500 → 5000. A day of live measurements: deliberate slams
+land at 5,100–22,600 RMS while everyday noise (cups, doors, hard typing,
+light taps) stays under ~4,500. Only real rage triggers now; calibration
+still tunes per setup.
+
 ## v0.3.9 (2026-07-14)
 
 Wake follows you across workspaces. Every hook event now records its
