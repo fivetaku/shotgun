@@ -1,0 +1,15 @@
+{
+  "name": "shotgun",
+  "description": "BANG — standalone marketplace for the shotgun plugin. Slam your desk; Claude flinches, apologizes, and re-reviews.",
+  "owner": {
+    "name": "fivetaku",
+    "url": "https://github.com/fivetaku"
+  },
+  "plugins": [
+    {
+      "name": "shotgun",
+      "source": "./",
+      "description": "Desk-slam rage detection over the mic — when you slam, Claude apologizes first, re-reviews the gap between what you asked and what it did, then redoes it."
+    }
+  ]
+}

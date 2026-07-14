@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Orchestration/session runtime artifacts (never ship)
+.omc/
+**/.omc/
+.imagen/
+
+# macOS
+.DS_Store
