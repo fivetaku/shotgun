@@ -297,13 +297,23 @@ def do_wake(cfg):
         # Before typing: ESC closes any open slash menu, then a backspace
         # burst wipes leftover input (a previous wake's remnant text otherwise
         # keeps the menu open and swallows the new command into its filter).
+        # Most recently ACTIVE session's host wins — hooks record their host
+        # pid on every event, so the wake target follows the user across
+        # workspaces and apps. Startup snapshot is the fallback.
+        host_pid = HOST_APP[0]
+        try:
+            pid_s, _ts = open(os.path.join(STATE, "last-host")).read().split()
+            if int(pid_s) > 1 and pid_alive(int(pid_s)):
+                host_pid = int(pid_s)
+        except Exception:
+            pass
         if cfg.get("wake_bundle"):
             activate = (f'tell application id "{cfg["wake_bundle"]}" to activate\n'
                         'delay 0.35\n')
-        elif HOST_APP[0]:
+        elif host_pid:
             activate = ('tell application "System Events"\n'
                         f'  set frontmost of (first application process whose '
-                        f'unix id is {HOST_APP[0]}) to true\n'
+                        f'unix id is {host_pid}) to true\n'
                         'end tell\n'
                         'delay 0.35\n')
         else:

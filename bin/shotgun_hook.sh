@@ -23,27 +23,30 @@ PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
 # a 10-min idle self-shutdown, the next activity in an existing session must
 # bring the mic back (session-start alone would leave it off until a new
 # window opens). The pidfile makes this a cheap no-op when already running.
+# Resolve THIS session's GUI host app while the parent chain is alive, and
+# record it on EVERY event — wake targets the most recently active session,
+# so switching workspaces/apps moves the target with you (a single startup
+# snapshot pinned wake to whichever window first spawned the daemon).
+HOST_PID=""
+if [ "$(uname -s)" = "Darwin" ]; then
+  p=$$
+  i=0
+  while [ $i -lt 12 ]; do
+    i=$((i + 1))
+    line="$(ps -o ppid=,comm= -p "$p" 2>/dev/null)" || break
+    pp="$(echo "$line" | awk '{print $1}')"
+    cm="$(echo "$line" | awk '{$1=""; print}')"
+    case "$cm" in *".app/Contents/MacOS"*) HOST_PID="$p" ;; esac
+    [ -z "$pp" ] && break
+    [ "$pp" -le 1 ] 2>/dev/null && break
+    p="$pp"
+  done
+  [ -n "$HOST_PID" ] && echo "$HOST_PID $(date +%s)" > "$STATE/last-host" 2>/dev/null
+fi
+
 if [ -f "$STATE/config.json" ] && [ -n "$PY" ]; then
   DPID="$(cat "$STATE/daemon.pid" 2>/dev/null)"
   if [ -z "$DPID" ] || ! kill -0 "$DPID" 2>/dev/null; then
-    # Resolve the GUI host app HERE, while the parent chain is alive — the
-    # daemon is reparented to launchd the moment this script exits, so it
-    # cannot walk its own ancestry reliably. Passed down via env.
-    HOST_PID=""
-    if [ "$(uname -s)" = "Darwin" ]; then
-      p=$$
-      i=0
-      while [ $i -lt 12 ]; do
-        i=$((i + 1))
-        line="$(ps -o ppid=,comm= -p "$p" 2>/dev/null)" || break
-        pp="$(echo "$line" | awk '{print $1}')"
-        cm="$(echo "$line" | awk '{$1=""; print}')"
-        case "$cm" in *".app/Contents/MacOS"*) HOST_PID="$p" ;; esac
-        [ -z "$pp" ] && break
-        [ "$pp" -le 1 ] 2>/dev/null && break
-        p="$pp"
-      done
-    fi
     SHOTGUN_HOST_PID="$HOST_PID" nohup "$PY" "$HERE/shotgun_listener.py" >/dev/null 2>&1 &
     disown 2>/dev/null || true
   fi

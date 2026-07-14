@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.9 (2026-07-14)
+
+Wake follows you across workspaces. Every hook event now records its
+session's GUI host app pid to `last-host`, and wake activates the most
+recently active session's host — not the app that happened to spawn the
+daemon first. Multi-workspace / multi-terminal setups get the command in the
+window they last touched.
+
 ## v0.3.8 (2026-07-14)
 
 Daemon liveness is now "any Claude Code process running" (pgrep), not
