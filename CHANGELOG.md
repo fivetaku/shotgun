@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.4 (2026-07-14)
+
+Faster trigger-to-command: default wake_delay 2s → 0.6s, pre-Enter menu
+settle 0.6s → 0.35s, halved remaining injection gaps (backspace burst 25).
+BANG-to-Enter is now roughly 1.5s end to end.
+
 ## v0.3.3 (2026-07-14)
 
 - **Apology outruns everything**: /bang now emits the apology as the very

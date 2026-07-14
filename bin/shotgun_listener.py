@@ -47,7 +47,7 @@ DEFAULTS = {
     "notify": True,          # macOS notification on detection
     "wake": True,            # if no session consumed the flag, type into the
                              # focused terminal to force-wake an idle session
-    "wake_delay": 2.0,       # seconds to wait for a live session first
+    "wake_delay": 0.6,       # seconds to wait for a live session first
     # Typed into the focused session. The FULLY-QUALIFIED command name —
     # plugin commands register namespaced (/shotgun:bang, not /bang), and only
     # an exact match reliably tops the slash menu before Enter fires.
@@ -270,19 +270,19 @@ def do_wake(cfg):
         # keeps the menu open and swallows the new command into its filter).
         script = ('tell application "System Events"\n'
                   '  set frontApp to name of first process whose frontmost is true\n'
-                  '  delay 0.25\n'
-                  '  key code 53\n'
                   '  delay 0.15\n'
-                  '  repeat 40 times\n'
+                  '  key code 53\n'
+                  '  delay 0.1\n'
+                  '  repeat 25 times\n'
                   '    key code 51\n'
                   '  end repeat\n'
-                  '  delay 0.1\n'
+                  '  delay 0.05\n'
                   '  keystroke "x"\n'
-                  '  delay 0.1\n'
+                  '  delay 0.05\n'
                   '  key code 51\n'
-                  '  delay 0.1\n'
+                  '  delay 0.05\n'
                   f'  keystroke "{esc}"\n'
-                  '  delay 0.6\n'
+                  '  delay 0.35\n'
                   '  key code 36\n'
                   'end tell\n'
                   'return frontApp')
