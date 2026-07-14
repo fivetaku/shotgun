@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.5 (2026-07-14)
+
+Wake now finds your session instead of trusting the frontmost window
+(field-observed: /shotgun:bang typed into a browser):
+
+- Activates the app hosting Claude Code first (auto-detected from
+  TERM_PROGRAM: VS Code / Terminal / iTerm2; override with `wake_bundle`).
+- Inside VS Code, reads the focused element via Accessibility — if it isn't a
+  terminal panel (e.g. the editor), clicks View > Terminal (en/ko menus) to
+  move focus before typing, so the command can't land in a source file.
+
 ## v0.3.4 (2026-07-14)
 
 Faster trigger-to-command: default wake_delay 2s → 0.6s, pre-Enter menu

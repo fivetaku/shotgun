@@ -202,6 +202,18 @@ def on_slam(cfg, rms, ratio, count):
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 
 
+def _mac_host_bundle(cfg):
+    """Bundle id of the app hosting Claude Code — wake activates it first so
+    the command lands in the session, not whatever app happens to be frontmost
+    (field-observed: /shotgun:bang typed into a browser)."""
+    if cfg.get("wake_bundle"):
+        return str(cfg["wake_bundle"])
+    return {"vscode": "com.microsoft.VSCode",
+            "Apple_Terminal": "com.apple.Terminal",
+            "iTerm.app": "com.googlecode.iterm2"}.get(
+        os.environ.get("TERM_PROGRAM", ""), "")
+
+
 def _hid_idle_seconds():
     """Seconds since the user's last keyboard/mouse input (macOS)."""
     try:
@@ -268,8 +280,39 @@ def do_wake(cfg):
         # Before typing: ESC closes any open slash menu, then a backspace
         # burst wipes leftover input (a previous wake's remnant text otherwise
         # keeps the menu open and swallows the new command into its filter).
-        script = ('tell application "System Events"\n'
-                  '  set frontApp to name of first process whose frontmost is true\n'
+        bundle = _mac_host_bundle(cfg)
+        activate = (f'tell application id "{bundle}" to activate\n'
+                    'delay 0.35\n') if bundle else ''
+        # Inside VS Code the keystrokes go to whatever element has focus —
+        # if it's the editor, the command lands in a source file. The focused
+        # element is readable via Accessibility (terminal panels describe
+        # themselves as "Terminal …"), so when it isn't a terminal we click
+        # View > Terminal (en/ko menus) to move focus there first.
+        focus_fix = (
+            '  tell application process frontApp\n'
+            '    set focusedDesc to ""\n'
+            '    try\n'
+            '      set focusedDesc to (value of attribute "AXDescription" of '
+            '(value of attribute "AXFocusedUIElement")) as text\n'
+            '    end try\n'
+            '    if focusedDesc does not start with "Terminal" then\n'
+            '      try\n'
+            '        click menu item "Terminal" of menu "View" of menu bar item '
+            '"View" of menu bar 1\n'
+            '      on error\n'
+            '        try\n'
+            '          click menu item "터미널" of menu "보기" '
+            'of menu bar item "보기" of menu bar 1\n'
+            '        end try\n'
+            '      end try\n'
+            '      delay 0.4\n'
+            '    end if\n'
+            '  end tell\n')
+        script = (activate +
+                  'tell application "System Events"\n'
+                  '  set frontApp to name of first application process whose '
+                  'frontmost is true\n'
+                  + focus_fix +
                   '  delay 0.15\n'
                   '  key code 53\n'
                   '  delay 0.1\n'
