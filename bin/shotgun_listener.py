@@ -47,10 +47,11 @@ DEFAULTS = {
     "notify": True,          # macOS notification on detection
     "wake": True,            # if no session consumed the flag, type into the
                              # focused terminal to force-wake an idle session
-    "wake_delay": 3.0,       # seconds to wait for a live session first
-    # Pasted into the focused session. A slash command, so the plugin's own
-    # /bang instruction file drives the apology + structured re-review.
-    "wake_text": "/bang",
+    "wake_delay": 2.0,       # seconds to wait for a live session first
+    # Typed into the focused session. The FULLY-QUALIFIED command name —
+    # plugin commands register namespaced (/shotgun:bang, not /bang), and only
+    # an exact match reliably tops the slash menu before Enter fires.
+    "wake_text": "/shotgun:bang",
 }
 
 
@@ -233,9 +234,9 @@ def do_wake(cfg):
                 if not os.path.exists(FLAG):
                     log("wake: cancelled (flag consumed while waiting)")
                     return
-                if _hid_idle_seconds() >= 1.2:
+                if _hid_idle_seconds() >= 0.8:
                     break
-                time.sleep(0.3)
+                time.sleep(0.25)
         if os.environ.get("TMUX") and os.environ.get("TMUX_PANE"):
             subprocess.run(["tmux", "send-keys", "-t", os.environ["TMUX_PANE"],
                             text, "Enter"], capture_output=True, timeout=5)
@@ -266,13 +267,13 @@ def do_wake(cfg):
         esc = text.replace("\\", "\\\\").replace('"', '\\"')
         script = ('tell application "System Events"\n'
                   '  set frontApp to name of first process whose frontmost is true\n'
-                  '  delay 0.5\n'
+                  '  delay 0.25\n'
                   '  keystroke "x"\n'
-                  '  delay 0.2\n'
+                  '  delay 0.1\n'
                   '  key code 51\n'
-                  '  delay 0.2\n'
+                  '  delay 0.1\n'
                   f'  keystroke "{esc}"\n'
-                  '  delay 1.2\n'
+                  '  delay 0.6\n'
                   '  key code 36\n'
                   'end tell\n'
                   'return frontApp')

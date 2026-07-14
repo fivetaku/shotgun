@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.2 (2026-07-14)
+
+- **Wake types the fully-qualified `/shotgun:bang`** — plugin commands
+  register namespaced, so bare `/bang` had no exact match in the slash menu
+  and Enter could fire whatever fuzzy entry was on top (field-observed:
+  /coupang-search). An exact match reliably tops the menu.
+- Snappier injection: settle 0.25s, sacrificial-char gaps 0.1s, menu-settle
+  0.6s, HID-idle threshold 0.8s; default wake_delay 3s → 2s.
+
 ## v0.3.1 (2026-07-14)
 
 Wake injection hardening, field-tested against VS Code:
