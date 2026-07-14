@@ -378,6 +378,7 @@ def run(cfg, duration=0, verbose=False, daemon=False):
     slams = 0
     wake_at = 0.0            # pending wake deadline (0 = none)
     wake_block = 0.0         # don't re-wake within this window
+    last_alive = time.time() # last time a live Claude Code signal was seen
 
     if verbose:
         print(f"listening on device :{cfg['device']} threshold={threshold:.0f} "
@@ -411,14 +412,28 @@ def run(cfg, duration=0, verbose=False, daemon=False):
                 wake_block = now + 60
                 do_wake(cfg)
 
-        if daemon and now - last_hb_check > 5:
+        if daemon and now - last_hb_check > 30:
             last_hb_check = now
-            try:
-                hb = os.path.getmtime(HEARTBEAT)
-            except OSError:
-                hb = start
-            if now - hb > HEARTBEAT_MAX:
-                log("no live session heartbeat; exiting")
+            # Alive while ANY Claude Code process exists — an open-but-idle
+            # window keeps the mic on (heartbeat-file-only liveness made the
+            # daemon die every 10 quiet minutes). Heartbeat stays as fallback.
+            alive = False
+            if not IS_WIN:
+                try:
+                    alive = subprocess.run(["pgrep", "-x", "claude"],
+                                           capture_output=True,
+                                           timeout=5).returncode == 0
+                except Exception:
+                    pass
+            if not alive:
+                try:
+                    alive = now - os.path.getmtime(HEARTBEAT) < HEARTBEAT_MAX
+                except OSError:
+                    pass
+            if alive:
+                last_alive = now
+            elif now - last_alive > 120:
+                log("no Claude Code process and stale heartbeat; exiting")
                 break
 
         if duration and now - start > duration:

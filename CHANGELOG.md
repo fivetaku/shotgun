@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.8 (2026-07-14)
+
+Daemon liveness is now "any Claude Code process running" (pgrep), not
+hook-event heartbeats — an open-but-idle window keeps the mic on instead of
+the daemon dying every 10 quiet minutes. All windows closed → daemon exits
+within ~2 minutes. Heartbeat file remains as a fallback signal.
+
 ## v0.3.7 (2026-07-14)
 
 - **Daemon revives on any hook event** — after the 10-minute idle
