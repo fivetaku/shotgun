@@ -46,6 +46,11 @@ DEFAULTS = {
 }
 
 
+def dbfs(rms):
+    """Linear int16 RMS → dBFS (0 dBFS = full scale 32768)."""
+    return 20.0 * math.log10(max(rms, 1.0) / 32768.0)
+
+
 def log(msg):
     try:
         with open(LOG, "a") as f:
@@ -162,13 +167,15 @@ def run(cfg, duration=0, verbose=False, daemon=False):
             slams += 1
             on_slam(cfg, rms, ratio, slams)
             if verbose:
-                print(f"SLAM! #{slams} rms={rms:.0f} peak={peak} ratio={ratio:.1f}", flush=True)
+                print(f"SLAM! #{slams} rms={rms:.0f} ({dbfs(rms):.1f} dBFS) "
+                      f"peak={peak} ratio={ratio:.1f}", flush=True)
         else:
             noise.append(rms)
 
         if verbose and now - last_report > 2:
             last_report = now
-            print(f"level rms={rms:.0f} peak={peak} floor={floor:.0f}", flush=True)
+            print(f"level rms={rms:.0f} ({dbfs(rms):.1f} dBFS) peak={peak} "
+                  f"floor={floor:.0f}", flush=True)
 
         if daemon and now - last_hb_check > 5:
             last_hb_check = now
@@ -210,7 +217,7 @@ def calibrate(cfg, duration=15):
         if rms > 800 and (floor < 50 or rms / max(floor, 1) > 4) and now - last_spike > 1.0:
             last_spike = now
             spikes.append(rms)
-            print(f"CAL spike rms={rms:.0f}", flush=True)
+            print(f"CAL spike rms={rms:.0f} ({dbfs(rms):.1f} dBFS)", flush=True)
         else:
             noise.append(rms)
         if now - start > duration:
@@ -223,7 +230,8 @@ def calibrate(cfg, duration=15):
     else:
         suggested = DEFAULTS["threshold"]
     print(f"CAL_RESULT floor={floor:.0f} spikes={[int(s) for s in spikes]} "
-          f"suggested={suggested} default={DEFAULTS['threshold']}", flush=True)
+          f"suggested={suggested} ({dbfs(suggested):.1f} dBFS) "
+          f"default={DEFAULTS['threshold']}", flush=True)
     return 0
 
 
