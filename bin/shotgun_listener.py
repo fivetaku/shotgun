@@ -500,7 +500,11 @@ def main():
     os.makedirs(STATE, exist_ok=True)
     global HOST_APP
     if not IS_WIN:
-        HOST_APP = _find_host_app()
+        env_pid = os.environ.get("SHOTGUN_HOST_PID", "")
+        if env_pid.isdigit() and int(env_pid) > 1:
+            HOST_APP = (int(env_pid), "from-hook-env")
+        else:
+            HOST_APP = _find_host_app()
     args = sys.argv[1:]
     cfg = load_config()
     if args and args[0] == "--devices":

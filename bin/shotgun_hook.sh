@@ -19,11 +19,37 @@ touch "$HB" 2>/dev/null || true
 # python3 on macOS/Linux; Git Bash on Windows often has only `python`.
 PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
 
-if [ "$EVENT" = "session-start" ]; then
-  if [ -f "$STATE/config.json" ] && [ -n "$PY" ]; then
-    nohup "$PY" "$HERE/shotgun_listener.py" >/dev/null 2>&1 &
+# Keep the daemon alive on EVERY hook event, not just session start — after
+# a 10-min idle self-shutdown, the next activity in an existing session must
+# bring the mic back (session-start alone would leave it off until a new
+# window opens). The pidfile makes this a cheap no-op when already running.
+if [ -f "$STATE/config.json" ] && [ -n "$PY" ]; then
+  DPID="$(cat "$STATE/daemon.pid" 2>/dev/null)"
+  if [ -z "$DPID" ] || ! kill -0 "$DPID" 2>/dev/null; then
+    # Resolve the GUI host app HERE, while the parent chain is alive — the
+    # daemon is reparented to launchd the moment this script exits, so it
+    # cannot walk its own ancestry reliably. Passed down via env.
+    HOST_PID=""
+    if [ "$(uname -s)" = "Darwin" ]; then
+      p=$$
+      i=0
+      while [ $i -lt 12 ]; do
+        i=$((i + 1))
+        line="$(ps -o ppid=,comm= -p "$p" 2>/dev/null)" || break
+        pp="$(echo "$line" | awk '{print $1}')"
+        cm="$(echo "$line" | awk '{$1=""; print}')"
+        case "$cm" in *".app/Contents/MacOS"*) HOST_PID="$p" ;; esac
+        [ -z "$pp" ] && break
+        [ "$pp" -le 1 ] 2>/dev/null && break
+        p="$pp"
+      done
+    fi
+    SHOTGUN_HOST_PID="$HOST_PID" nohup "$PY" "$HERE/shotgun_listener.py" >/dev/null 2>&1 &
     disown 2>/dev/null || true
   fi
+fi
+
+if [ "$EVENT" = "session-start" ]; then
   exit 0
 fi
 

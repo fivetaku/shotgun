@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.3.7 (2026-07-14)
+
+- **Daemon revives on any hook event** — after the 10-minute idle
+  self-shutdown, the next activity in an existing session restarts the mic
+  (previously only a brand-new session did, leaving the mic off).
+- **Host app resolved in the hook, handed to the daemon via env** — a
+  hook-spawned daemon is reparented to launchd before it can walk its own
+  ancestry, so the hook (whose parent chain is alive) resolves the GUI host
+  pid and passes SHOTGUN_HOST_PID down. Verified: hook-spawned daemon
+  correctly targets the hosting IDE.
+
 ## v0.3.6 (2026-07-14)
 
 No more hardcoded app names. The daemon walks its own process ancestry at
