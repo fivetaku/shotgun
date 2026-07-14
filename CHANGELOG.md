@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.3 (2026-07-14)
+
+- **Apology outruns everything**: /bang now emits the apology as the very
+  first output, BEFORE any tool call — state consumption happens after. Field
+  test showed the state-read running first and delaying the apology.
+- Flag consumption switched to `mv` (no file deletion command) — user safety
+  hooks that block deletion commands caused a 40s+ retry loop mid-apology.
+  Also collapsed to one fast command.
+- Wake injection clears leftover input first (ESC + backspace burst) so a
+  previous wake's remnant text can't trap the new command in the slash menu
+  filter.
+
 ## v0.3.2 (2026-07-14)
 
 - **Wake types the fully-qualified `/shotgun:bang`** — plugin commands

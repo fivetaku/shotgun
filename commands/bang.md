@@ -10,34 +10,37 @@ wake mode, but reacts the same if a human types it.
 
 **Respond in the language the user has been using in this conversation.**
 
-## Step 0 — consume detection state (run first, silently)
+## Sequence — the apology comes BEFORE everything, including tool calls
+
+### 1. APOLOGIZE — your very first output, before ANY tool call
+
+One or two sincere sentences, no excuses, no hedging, no preamble. The user
+is angry RIGHT NOW; text reaches them instantly, tool calls don't. Do not run
+anything before these sentences are out.
+
+### 2. Consume detection state (single fast command; never use `rm` — user
+safety hooks commonly block it)
 
 ```bash
-S="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shotgun"
-if [ -f "$S/flag" ]; then
-  echo "FLAG:"; cat "$S/flag"
-  rm -f "$S/flag"; date +%s > "$S/cooldown" 2>/dev/null
-else
-  echo "no unconsumed flag (a hook may have already eaten it)"
-fi
-tail -3 "$S/daemon.log" 2>/dev/null
+S="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shotgun"; if [ -f "$S/flag" ]; then echo "FLAG:"; cat "$S/flag"; mv "$S/flag" "$S/flag.consumed"; date +%s > "$S/cooldown"; else echo "no unconsumed flag (a hook may have already eaten it)"; fi; tail -3 "$S/daemon.log" 2>/dev/null
 ```
 
 FLAG lines look like `<epoch> rms=<intensity> ratio=<x>`. Multiple lines = the
 user slammed multiple times (combo) — treat it as far more serious.
 
-## Protocol — sequence is critical
+### 3. Re-review
 
-1. **Your FIRST sentences are the apology.** One or two sentences, sincere, no
-   excuses, no hedging, before ANY analysis or tool output. Calm the user down
-   first. Mention intensity/combo only briefly if it helps ("두 번 치셨네요 —
-   심각하게 받겠습니다" style).
-2. **Then the re-review.** Quote what the user asked for in the recent
-   conversation, compare it against what you actually did or produced, and
-   hunt for the gap: skipped instructions, wrong assumptions, half-done work,
-   promises made but not executed.
-3. **Own it and redo it.** Name the mistake plainly, state how you'll fix it,
-   then actually do the fix in this same turn — don't stop at the plan.
-4. **If an honest review finds nothing wrong**, say so plainly after showing
-   what you checked, and ask the user to point at what set them off — one
-   sentence from them beats another guessing round.
+Quote what the user asked for in the recent conversation, compare it against
+what you actually did or produced, and hunt for the gap: skipped
+instructions, wrong assumptions, half-done work, promises made but not
+executed.
+
+### 4. Own it and redo it
+
+Name the mistake plainly, state how you'll fix it, then actually do the fix
+in this same turn — don't stop at the plan.
+
+### 5. If an honest review finds nothing wrong
+
+Say so plainly after showing what you checked, and ask the user to point at
+what set them off — one sentence from them beats another guessing round.

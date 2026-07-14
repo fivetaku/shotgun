@@ -265,9 +265,18 @@ def do_wake(cfg):
         # fires whatever fuzzy entry is highlighted — observed once selecting
         # /coupang-search from a half-typed /bang). ASCII wake_text only.
         esc = text.replace("\\", "\\\\").replace('"', '\\"')
+        # Before typing: ESC closes any open slash menu, then a backspace
+        # burst wipes leftover input (a previous wake's remnant text otherwise
+        # keeps the menu open and swallows the new command into its filter).
         script = ('tell application "System Events"\n'
                   '  set frontApp to name of first process whose frontmost is true\n'
                   '  delay 0.25\n'
+                  '  key code 53\n'
+                  '  delay 0.15\n'
+                  '  repeat 40 times\n'
+                  '    key code 51\n'
+                  '  end repeat\n'
+                  '  delay 0.1\n'
                   '  keystroke "x"\n'
                   '  delay 0.1\n'
                   '  key code 51\n'
