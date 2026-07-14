@@ -24,6 +24,8 @@ import subprocess
 import sys
 import time
 
+IS_WIN = sys.platform == "win32"
+
 STATE = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR", os.path.expanduser("~/.claude")), "shotgun")
 CONFIG = os.path.join(STATE, "config.json")
 FLAG = os.path.join(STATE, "flag")
@@ -46,7 +48,9 @@ DEFAULTS = {
     "wake": True,            # if no session consumed the flag, type into the
                              # focused terminal to force-wake an idle session
     "wake_delay": 3.0,       # seconds to wait for a live session first
-    "wake_text": "BANG",     # the text typed to wake the session
+    # Pasted into the focused session. A slash command, so the plugin's own
+    # /bang instruction file drives the apology + structured re-review.
+    "wake_text": "/bang",
 }
 
 
@@ -74,10 +78,35 @@ def load_config():
 
 
 def find_ffmpeg():
-    for cand in (shutil.which("ffmpeg"), "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"):
+    cands = [shutil.which("ffmpeg")]
+    if IS_WIN:
+        home = os.path.expanduser("~")
+        cands += [os.path.join(home, r"scoop\shims\ffmpeg.exe"),
+                  r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+                  r"C:\ffmpeg\bin\ffmpeg.exe"]
+    else:
+        cands += ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+    for cand in cands:
         if cand and os.path.exists(cand):
             return cand
     return None
+
+
+def pid_alive(pid):
+    """Cross-platform liveness check. NEVER use os.kill(pid, 0) on Windows —
+    any non-CTRL signal there unconditionally TerminateProcess()es the target."""
+    if IS_WIN:
+        try:
+            out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                                 capture_output=True, text=True, timeout=10).stdout
+            return str(pid) in out
+        except Exception:
+            return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
 
 
 def list_devices():
@@ -85,6 +114,14 @@ def list_devices():
     if not ff:
         print("ERROR ffmpeg not found (brew install ffmpeg)")
         return 1
+    if IS_WIN:
+        out = subprocess.run([ff, "-hide_banner", "-list_devices", "true",
+                              "-f", "dshow", "-i", "dummy"],
+                             capture_output=True, text=True).stderr
+        for line in out.splitlines():
+            if "(audio)" in line and '"' in line:
+                print(line.split('"')[1])
+        return 0
     out = subprocess.run([ff, "-hide_banner", "-f", "avfoundation",
                           "-list_devices", "true", "-i", ""],
                          capture_output=True, text=True).stderr
@@ -105,8 +142,11 @@ def open_stream(cfg):
     if not ff:
         log("ffmpeg not found; exiting")
         sys.exit(1)
-    cmd = [ff, "-hide_banner", "-loglevel", "error",
-           "-f", "avfoundation", "-i", f":{cfg['device']}",
+    if IS_WIN:
+        inp = ["-f", "dshow", "-i", f"audio={cfg['device']}"]
+    else:
+        inp = ["-f", "avfoundation", "-i", f":{cfg['device']}"]
+    cmd = [ff, "-hide_banner", "-loglevel", "error", *inp,
            "-ac", "1", "-ar", str(SR), "-f", "s16le", "-"]
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -136,12 +176,28 @@ def on_slam(cfg, rms, ratio, count):
     except OSError as e:
         log(f"flag write failed: {e}")
     if cfg.get("sound"):
-        subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if IS_WIN:
+            try:
+                import winsound
+                winsound.MessageBeep(winsound.MB_ICONEXCLAMATION)
+            except Exception:
+                pass
+        else:
+            subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if cfg.get("notify"):
-        subprocess.Popen(["osascript", "-e",
-                          'display notification "BANG detected — review triggered" with title "shotgun"'],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if IS_WIN:
+            ps = ("[reflection.assembly]::loadwithpartialname('System.Windows.Forms')|Out-Null;"
+                  "$n=New-Object System.Windows.Forms.NotifyIcon;"
+                  "$n.Icon=[System.Drawing.SystemIcons]::Exclamation;$n.Visible=$true;"
+                  "$n.ShowBalloonTip(3000,'shotgun','BANG detected - review triggered',"
+                  "[System.Windows.Forms.ToolTipIcon]::Warning)")
+            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.Popen(["osascript", "-e",
+                              'display notification "BANG detected — review triggered" with title "shotgun"'],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 
 
@@ -154,24 +210,48 @@ def do_wake(cfg):
     the user is staring at while slamming). Needs macOS Accessibility
     permission for the keystroke path; failures are logged, never fatal.
     """
-    text = str(cfg.get("wake_text") or "BANG").replace('"', "")
+    text = str(cfg.get("wake_text") or DEFAULTS["wake_text"])
     try:
         if os.environ.get("TMUX") and os.environ.get("TMUX_PANE"):
             subprocess.run(["tmux", "send-keys", "-t", os.environ["TMUX_PANE"],
                             text, "Enter"], capture_output=True, timeout=5)
             log(f"wake: tmux send-keys to {os.environ['TMUX_PANE']}")
             return
-        script = (f'tell application "System Events"\n'
-                  f'  keystroke "{text}"\n'
-                  f'  key code 36\n'
-                  f'end tell')
+        if IS_WIN:
+            # Clipboard-paste via SendKeys: no dropped first char, any language.
+            ps = ("$old = Get-Clipboard -Raw -ErrorAction SilentlyContinue; "
+                  "Set-Clipboard -Value $env:SHOTGUN_WAKE_TEXT; "
+                  "$w = New-Object -ComObject WScript.Shell; "
+                  "Start-Sleep -Milliseconds 300; $w.SendKeys('^v'); "
+                  "Start-Sleep -Milliseconds 250; $w.SendKeys('{ENTER}'); "
+                  "Start-Sleep -Milliseconds 300; "
+                  "if ($old) { Set-Clipboard -Value $old }")
+            env = dict(os.environ, SHOTGUN_WAKE_TEXT=text)
+            r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                               capture_output=True, text=True, timeout=15, env=env)
+            log("wake: SendKeys paste sent" if r.returncode == 0 else
+                f"wake failed: {r.stderr.strip()[:200]}")
+            return
+        # macOS: clipboard-paste instead of keystroke — System Events keystroke
+        # races focus and eats the first character ("BANG" arrived as "ANG").
+        old = subprocess.run(["pbpaste"], capture_output=True, text=True,
+                             timeout=5).stdout
+        subprocess.run(["pbcopy"], input=text, text=True, timeout=5)
+        script = ('delay 0.3\n'
+                  'tell application "System Events"\n'
+                  '  keystroke "v" using command down\n'
+                  '  delay 0.25\n'
+                  '  key code 36\n'
+                  'end tell')
         r = subprocess.run(["osascript", "-e", script],
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, text=True, timeout=10)
+        time.sleep(0.4)
+        subprocess.run(["pbcopy"], input=old, text=True, timeout=5)  # restore
         if r.returncode != 0:
             log(f"wake failed (grant Accessibility to your terminal app): "
                 f"{r.stderr.strip()[:200]}")
         else:
-            log("wake: keystroke sent to frontmost app")
+            log("wake: paste sent to frontmost app")
     except Exception as e:  # wake is best-effort by design
         log(f"wake error: {e}")
 
@@ -287,8 +367,8 @@ def daemon_main(cfg):
     if os.path.exists(PIDFILE):
         try:
             pid = int(open(PIDFILE).read().strip())
-            os.kill(pid, 0)
-            return 0  # already running
+            if pid_alive(pid):
+                return 0  # already running
         except (OSError, ValueError):
             pass  # stale pidfile
     with open(PIDFILE, "w") as f:

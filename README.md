@@ -58,7 +58,7 @@ Slam the desk. You'll hear a chime (detected), and at the next hook event Claude
 
 - A session-scoped daemon reads the mic through ffmpeg and compares 21ms volume blocks against a rolling background noise floor. A sudden spike above your calibrated threshold (default 1500) = slam.
 - Detection writes a one-line flag file. Claude Code hooks (PreToolUse / Stop / UserPromptSubmit) consume it: mid-work slams interrupt the very next tool call; Claude can't even end its turn without apologizing first.
-- **Wake mode**: if the session is idle and nothing consumes the flag within ~3s, the daemon types `BANG` + Enter into your terminal (exact tmux pane, or the frontmost window) to force-wake it — no input from you needed. Needs Accessibility permission; disable with `"wake": false` in `~/.claude/shotgun/config.json`.
+- **Wake mode**: if the session is idle and nothing consumes the flag within a few seconds, the daemon pastes `/bang` + Enter into your terminal (exact tmux pane, or the frontmost window) — the plugin's own slash command then runs the fixed workflow: apologize first, read intensity/combo, re-review, redo. No input from you needed. Needs Accessibility permission on macOS; disable with `"wake": false` in `~/.claude/shotgun/config.json`.
 - The daemon runs only while Claude Code is in use (the orange mic indicator is your receipt) and shuts itself down 10 minutes after your last session ends. Uninstall the plugin and the hooks go with it.
 
 ## Requirements

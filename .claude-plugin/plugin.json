@@ -1,6 +1,6 @@
 {
   "name": "shotgun",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "샷건 감지 — 빡쳐서 책상을 쾅 치면 마이크가 잡아내고, 클로드가 움찔하며 먼저 사과한 뒤 뭘 잘못했는지 재검토하고 다시 한다. Desk-slam rage detection: Claude flinches, apologizes first, re-reviews what it got wrong, and redoes it.",
   "author": {
     "name": "fivetaku",

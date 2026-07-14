@@ -16,9 +16,12 @@ touch "$HB" 2>/dev/null || true
 
 # SessionStart: keep the daemon alive while Claude Code is in use.
 # Only starts after /shotgun setup has written a config (no surprise mic prompts).
+# python3 on macOS/Linux; Git Bash on Windows often has only `python`.
+PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
+
 if [ "$EVENT" = "session-start" ]; then
-  if [ -f "$STATE/config.json" ] && command -v python3 >/dev/null 2>&1; then
-    nohup python3 "$HERE/shotgun_listener.py" >/dev/null 2>&1 &
+  if [ -f "$STATE/config.json" ] && [ -n "$PY" ]; then
+    nohup "$PY" "$HERE/shotgun_listener.py" >/dev/null 2>&1 &
     disown 2>/dev/null || true
   fi
   exit 0
@@ -37,8 +40,8 @@ if [ -f "$CD" ]; then
   fi
 fi
 
-command -v python3 >/dev/null 2>&1 || exit 0
-python3 - "$EVENT" "$FLAG" "$CD" <<'PY' 2>/dev/null
+[ -n "$PY" ] || exit 0
+"$PY" - "$EVENT" "$FLAG" "$CD" <<'PY' 2>/dev/null
 import json, os, sys, time
 
 event, flag, cooldown = sys.argv[1], sys.argv[2], sys.argv[3]

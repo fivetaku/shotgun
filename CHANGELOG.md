@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.3.0 (2026-07-14)
+
+- **Wake now types `/bang`** — a real slash command instead of a prompt blob.
+  The plugin's own `/bang` instruction file drives the fixed workflow:
+  apology FIRST, then consume detection state (intensity/combo), then the
+  structured asked-vs-did re-review, then the redo. Works identically when a
+  human types /bang.
+- **Clipboard-paste injection** replaces System Events keystrokes — fixes the
+  dropped first character ("BANG" arriving as "ANG") and handles any language.
+  Original clipboard contents are restored afterwards.
+- **Windows auto-port (experimental, untested on real hardware)**: the same
+  code now detects the OS — ffmpeg dshow capture, winsound chime, PowerShell
+  balloon notification, clipboard+SendKeys wake, tasklist-based pid check
+  (os.kill(pid,0) kills processes on Windows — never used there), and the
+  hook script resolves python3/python for Git Bash. macOS behavior unchanged.
+
 ## v0.2.0 (2026-07-14)
 
 **Wake mode** — idle sessions now get force-woken. Hooks are event-driven, so
