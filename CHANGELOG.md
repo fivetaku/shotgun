@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.6 (2026-07-14)
+
+No more hardcoded app names. The daemon walks its own process ancestry at
+startup to the topmost *.app/Contents/MacOS ancestor — the actual GUI app
+hosting Claude Code (Terminal, iTerm, VS Code, Antigravity, any fork) — and
+wake activates that app by pid. TERM_PROGRAM=vscode had been wrongly mapped
+to Microsoft VS Code, which broke wake entirely for VS Code forks
+(field-observed on Antigravity IDE). `wake_bundle` still overrides.
+
 ## v0.3.5 (2026-07-14)
 
 Wake now finds your session instead of trusting the frontmost window

@@ -202,16 +202,33 @@ def on_slam(cfg, rms, ratio, count):
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 
 
-def _mac_host_bundle(cfg):
-    """Bundle id of the app hosting Claude Code — wake activates it first so
-    the command lands in the session, not whatever app happens to be frontmost
-    (field-observed: /shotgun:bang typed into a browser)."""
-    if cfg.get("wake_bundle"):
-        return str(cfg["wake_bundle"])
-    return {"vscode": "com.microsoft.VSCode",
-            "Apple_Terminal": "com.apple.Terminal",
-            "iTerm.app": "com.googlecode.iterm2"}.get(
-        os.environ.get("TERM_PROGRAM", ""), "")
+HOST_APP = (0, "")   # (pid, executable) of the GUI app hosting Claude Code
+
+
+def _find_host_app():
+    """Walk the ppid chain to the topmost ancestor whose executable lives in
+    *.app/Contents/MacOS — the real GUI app hosting Claude Code (Terminal,
+    iTerm, VS Code, Antigravity, any fork). No app names hardcoded. Must run
+    at daemon start, while the parent chain is still alive."""
+    pid = os.getpid()
+    host = (0, "")
+    for _ in range(15):
+        try:
+            out = subprocess.run(["ps", "-o", "ppid=,comm=", "-p", str(pid)],
+                                 capture_output=True, text=True,
+                                 timeout=5).stdout.strip()
+            if not out:
+                break
+            ppid_s, comm = out.split(None, 1)
+            if ".app/Contents/MacOS" in comm and pid != os.getpid():
+                host = (pid, comm.strip())   # keep the highest match
+            ppid = int(ppid_s)
+            if ppid <= 1:
+                break
+            pid = ppid
+        except Exception:
+            break
+    return host
 
 
 def _hid_idle_seconds():
@@ -280,9 +297,17 @@ def do_wake(cfg):
         # Before typing: ESC closes any open slash menu, then a backspace
         # burst wipes leftover input (a previous wake's remnant text otherwise
         # keeps the menu open and swallows the new command into its filter).
-        bundle = _mac_host_bundle(cfg)
-        activate = (f'tell application id "{bundle}" to activate\n'
-                    'delay 0.35\n') if bundle else ''
+        if cfg.get("wake_bundle"):
+            activate = (f'tell application id "{cfg["wake_bundle"]}" to activate\n'
+                        'delay 0.35\n')
+        elif HOST_APP[0]:
+            activate = ('tell application "System Events"\n'
+                        f'  set frontmost of (first application process whose '
+                        f'unix id is {HOST_APP[0]}) to true\n'
+                        'end tell\n'
+                        'delay 0.35\n')
+        else:
+            activate = ''
         # Inside VS Code the keystrokes go to whatever element has focus —
         # if it's the editor, the command lands in a source file. The focused
         # element is readable via Accessibility (terminal panels describe
@@ -457,7 +482,9 @@ def daemon_main(cfg):
             pass  # stale pidfile
     with open(PIDFILE, "w") as f:
         f.write(str(os.getpid()))
-    log(f"daemon started pid={os.getpid()} device={cfg['device']} threshold={cfg['threshold']}")
+    host_name = HOST_APP[1].rsplit("/", 1)[-1] if HOST_APP[0] else "none"
+    log(f"daemon started pid={os.getpid()} device={cfg['device']} "
+        f"threshold={cfg['threshold']} host={host_name}({HOST_APP[0]})")
     try:
         run(cfg, daemon=True)
     finally:
@@ -471,6 +498,9 @@ def daemon_main(cfg):
 
 def main():
     os.makedirs(STATE, exist_ok=True)
+    global HOST_APP
+    if not IS_WIN:
+        HOST_APP = _find_host_app()
     args = sys.argv[1:]
     cfg = load_config()
     if args and args[0] == "--devices":
