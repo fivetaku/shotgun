@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.2 (2026-07-15)
+
+Setup now writes `notify_text` in the user's conversation language, so the
+instant first-apology notification is localized out of the box.
+
 ## v0.4.1 (2026-07-15)
 
 **Instant first apology.** Measured reality: even headless with an empty

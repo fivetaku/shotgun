@@ -72,7 +72,7 @@ spikes가 비어 있으면(한 번도 안 침) 기본값 1500으로 진행하고
 
 ### 5. 설정 저장 + 데몬 시작
 
-python3로 `~/.claude/shotgun/config.json`을 쓴다 (키: enabled, device, threshold, ratio=6.0, refractory=1.5, sound=true, notify=true). 그리고:
+python3로 `~/.claude/shotgun/config.json`을 쓴다 (키: enabled, device, threshold, ratio=6.0, refractory=1.5, sound=true, notify=true, notify_text). **notify_text는 즉시 사과 알림 문구 — 반드시 사용자의 현재 대화 언어로 작성한다** (예: ko "죄송합니다! 뭘 잘못했는지 바로 재검토하겠습니다" / en "Sorry! My bad — reviewing what I got wrong right now." / ja "申し訳ございません！何を間違えたかすぐ再確認します"). 그리고:
 
 ```bash
 nohup python3 "${CLAUDE_PLUGIN_ROOT}/bin/shotgun_listener.py" >/dev/null 2>&1 & disown
