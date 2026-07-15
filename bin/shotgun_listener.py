@@ -45,6 +45,9 @@ DEFAULTS = {
     "refractory": 1.5,       # seconds; one BANG = one trigger
     "sound": True,           # play a chime on detection
     "notify": True,          # macOS notification on detection
+    # Instant first apology (~1s) while the model's full apology is still
+    # generating — model time-to-first-token is the unavoidable slow part.
+    "notify_text": "Sorry! My bad — reviewing what I got wrong right now.",
     "wake": True,            # if no session consumed the flag, type into the
                              # focused terminal to force-wake an idle session
     "wake_delay": 0.6,       # seconds to wait for a live session first
@@ -187,17 +190,20 @@ def on_slam(cfg, rms, ratio, count):
             subprocess.Popen(["afplay", "/System/Library/Sounds/Glass.aiff"],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if cfg.get("notify"):
+        text = str(cfg.get("notify_text") or DEFAULTS["notify_text"])
         if IS_WIN:
+            safe = text.replace("'", "")
             ps = ("[reflection.assembly]::loadwithpartialname('System.Windows.Forms')|Out-Null;"
                   "$n=New-Object System.Windows.Forms.NotifyIcon;"
                   "$n.Icon=[System.Drawing.SystemIcons]::Exclamation;$n.Visible=$true;"
-                  "$n.ShowBalloonTip(3000,'shotgun','BANG detected - review triggered',"
+                  f"$n.ShowBalloonTip(3000,'shotgun','{safe}',"
                   "[System.Windows.Forms.ToolTipIcon]::Warning)")
             subprocess.Popen(["powershell", "-NoProfile", "-Command", ps],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
+            safe = text.replace("\\", "\\\\").replace('"', '\\"')
             subprocess.Popen(["osascript", "-e",
-                              'display notification "BANG detected — review triggered" with title "shotgun"'],
+                              f'display notification "{safe}" with title "shotgun 🔫"'],
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     log(f"SLAM #{count} rms={rms:.0f} ratio={ratio:.1f}")
 

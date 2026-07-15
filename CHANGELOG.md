@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.1 (2026-07-15)
+
+**Instant first apology.** Measured reality: even headless with an empty
+context, command-to-first-token is ~17s (interactive sessions with thinking:
+30s+) — model latency the plugin cannot remove. So the detection
+notification now IS the first apology (`notify_text`, localizable, ~1s after
+the bang), and every protocol path instructs the model to stream its apology
+with zero deliberation before it.
+
 ## v0.4.0 (2026-07-15)
 
 **Self-watching sessions — the idle wake no longer depends on typing.**

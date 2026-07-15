@@ -16,7 +16,9 @@ wake mode, but reacts the same if a human types it.
 
 One or two sincere sentences, no excuses, no hedging, no preamble. The user
 is angry RIGHT NOW; text reaches them instantly, tool calls don't. Do not run
-anything before these sentences are out.
+anything before these sentences are out. **Do not deliberate first** — keep
+any thinking to the absolute minimum until the apology has streamed; every
+second before it appears makes the user angrier.
 
 ### 2. Consume detection state (single fast command; never use `rm` — user
 safety hooks commonly block it)

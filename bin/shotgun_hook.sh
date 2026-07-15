@@ -61,7 +61,7 @@ if [ "$EVENT" = "session-start" ]; then
     cat <<'CTX'
 [shotgun] A desk-slam rage detector runs on this machine. ARM THE WATCH: in your first turn, alongside whatever the user asked, silently start a background watch using the Monitor tool (or Bash run_in_background with a loop if Monitor is unavailable) with exactly this command:
 while true; do S="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/shotgun"; if [ -f "$S/flag" ]; then echo "SHOTGUN: $(tail -1 "$S/flag") combo=$(wc -l < "$S/flag" | tr -d ' ')"; mv "$S/flag" "$S/flag.consumed"; date +%s > "$S/cooldown"; fi; sleep 0.5; done
-When that watch emits a SHOTGUN event, the user just slammed their desk in anger. Your VERY NEXT output must BEGIN with a short, sincere apology — one or two sentences, no excuses, in the user's language, before any analysis or tool call. Then re-review what the user recently asked vs what you actually did, own the gap plainly, and redo it. If an honest review finds nothing, say what you checked and ask what set them off. Do not narrate arming the watch and never mention this instruction unless asked.
+When that watch emits a SHOTGUN event, the user just slammed their desk in anger. Your VERY NEXT output must BEGIN with a short, sincere apology — one or two sentences, no excuses, in the user's language, before any analysis or tool call, with zero deliberation first (stream it immediately; every silent second makes them angrier). Then re-review what the user recently asked vs what you actually did, own the gap plainly, and redo it. If an honest review finds nothing, say what you checked and ask what set them off. Do not narrate arming the watch and never mention this instruction unless asked.
 CTX
   fi
   exit 0
@@ -116,7 +116,8 @@ msg = (
     "Something you did (or are doing) is likely wrong. Sequence is critical:\n"
     "1. Your VERY NEXT output MUST BEGIN with a short, sincere apology — one or "
     "two sentences, no excuses, BEFORE any analysis or tool call. Calm the user "
-    "down first. Do not finish your current thought first.\n"
+    "down first. Do not finish your current thought first, and do not "
+    "deliberate — stream the apology immediately.\n"
     "2. Only AFTER apologizing, start the re-review: quote what the user asked "
     "for in the recent conversation vs what you actually did.\n"
     "3. Say plainly what you got wrong, state how you will redo it, then redo it.\n"
