@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0 (2026-07-15)
+
+**Self-watching sessions — the idle wake no longer depends on typing.**
+SessionStart now arms an in-session background watch (Monitor / background
+loop) on the flag file. When you slam, the session wakes ITSELF on the event
+and apologizes — no keystroke injection, so focus, window position, IME,
+Secure Keyboard Entry, and app quirks stop mattering. Works in every
+terminal and IDE identically. The typed /shotgun:bang wake remains as a
+fallback and cancels itself automatically when a session's watch consumes
+the flag first (which it normally does, within ~0.5s). Sessions arm on
+their first turn; restart old windows to get the watch.
+
 ## v0.3.10 (2026-07-15)
 
 Default threshold 1500 → 5000. A day of live measurements: deliberate slams
